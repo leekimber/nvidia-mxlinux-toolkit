@@ -25,7 +25,7 @@ cause GPU compute to silently fail:
 
 ```bash
 # Download
-curl -O https://raw.githubusercontent.com/YOURNAME/nvidia-mxlinux-toolkit/main/nvidia-mxlinux-toolkit.sh
+curl -O https://raw.githubusercontent.com/leekimber/nvidia-mxlinux-toolkit/main/nvidia-mxlinux-toolkit.sh
 chmod +x nvidia-mxlinux-toolkit.sh
 
 # Diagnose (no changes)
