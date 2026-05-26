@@ -333,9 +333,18 @@ fi
 
 echo ""
 echo "  Quick start for Ollama:"
-echo "    export OLLAMA_LIBRARY_PATH=\$HOME/ollama_cuda_libs"
-echo "    export LD_LIBRARY_PATH=\$HOME/ollama_cuda_libs:\$LD_LIBRARY_PATH"
-echo "    ollama serve &"
+echo ""
+echo "  Non-systemd (MX Linux sysvinit/runit):"
+echo "    cp misc/start_ollama.sh ~/bin/"
+echo "    ~/bin/start_ollama.sh &"
+echo ""
+echo "  Systemd:"
+echo "    Add to /etc/systemd/system/ollama.service [Service] section:"
+echo "      Environment=\"OLLAMA_LIBRARY_PATH=/home/\$USER/ollama_cuda_libs\""
+echo "      Environment=\"LD_LIBRARY_PATH=/home/\$USER/ollama_cuda_libs\""
+echo "    Then: sudo systemctl daemon-reload && sudo systemctl restart ollama"
+echo ""
+echo "  See README.md and misc/README.md for full instructions."
 echo ""
 
 # Save report
