@@ -62,6 +62,7 @@ bash nvidia-mxlinux-toolkit.sh --fix
 | CUDA Test | `cuInit()` + device query via Python | -- |
 | MLX Symlinks | Ollama's `mlx_cuda_v13/` relative links | Replace with absolute symlinks |
 | User-space CUDA | Fallback library directory | Copy libs to `~/ollama_cuda_libs/` |
+| PyTorch CUDA | PyTorch version vs driver compatibility | Install matching PyTorch build (cu126, cu124, etc.) |
 | Other Runtimes | Docker, LM Studio, Conda, PyTorch | Install missing packages |
 
 ## After Running
@@ -144,6 +145,16 @@ The `misc/` directory contains helper scripts for specific setups:
   Run this FIRST, before any software troubleshooting.
 - **[start_ollama.sh](misc/start_ollama.sh)** -- Launch script for non-systemd
   users. Sets `OLLAMA_LIBRARY_PATH` and `LD_LIBRARY_PATH` for the MLX runner.
+- **[fix_pytorch_cuda.sh](misc/fix_pytorch_cuda.sh)** -- Fixes PyTorch/CUDA version
+  mismatch. PyTorch bundles its own CUDA runtime; if it's newer than your driver
+  supports, `torch.cuda.is_available()` returns `False`. This script installs a
+  matching PyTorch build. Run when the main toolkit reports a PyTorch CUDA issue.
+- **[test_whisper.sh](misc/test_whisper.sh)** -- Tests openai-whisper transcription
+  on CUDA. Checks model loading, transcription output, SRT format, and provides
+  model/VRAM recommendations. Run after fixing CUDA to verify whisper works.
+- **[transcribe_local.sh](misc/transcribe_local.sh)** -- Batch video/audio to
+  transcript. Configurable model, device, format, and language via variables at
+  the top of the script. SRT output by default.
 - **[misc/README.md](misc/README.md)** -- Detailed documentation for each tool,
   including systemd configuration instructions.
 

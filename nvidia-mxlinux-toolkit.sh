@@ -275,6 +275,84 @@ else
     note "Ollama not installed (https://ollama.com)"
 fi
 
+# ── 6.5 PyTorch CUDA Compatibility ───────────────────────────────────
+header "6.5 PyTorch CUDA Compatibility"
+
+# Find python with torch (pipx venv or system)
+TORCH_PYTHON=""
+for cmd in \
+    "$HOME/.local/pipx/venvs/openai-whisper/bin/python3" \
+    "$HOME/.local/bin/python3" \
+    "$(command -v python3 2>/dev/null)"; do
+    [[ -x "$cmd" ]] && $cmd -c "import torch" &>/dev/null && TORCH_PYTHON="$cmd" && break
+done
+
+if [[ -n "$TORCH_PYTHON" ]]; then
+    TORCH_VER=$($TORCH_PYTHON -c "import torch; print(torch.__version__)" 2>/dev/null) || TORCH_VER="unknown"
+    ok "PyTorch found: $TORCH_VER ($TORCH_PYTHON)"
+
+    # Extract CUDA variant (e.g. "2.12.0+cu126" → "12.6")
+    TORCH_CUDA=$(echo "$TORCH_VER" | grep -oP 'cu\K[0-9]+' | sed 's/\(.\)\(.\)/\1.\2/')
+    if [[ -z "$TORCH_CUDA" ]]; then
+        warn "PyTorch is CPU-only (no CUDA support)"
+        note "Reinstall with CUDA: see misc/fix_pytorch_cuda.sh"
+    else
+        note "PyTorch compiled for CUDA: $TORCH_CUDA"
+
+        # Check driver compatibility
+        DRIVER_SMI=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
+        DRIVER_MAJOR=$(echo "$DRIVER_SMI" | cut -d. -f1)
+        CUDA_MINOR=$(echo "$TORCH_CUDA" | cut -d. -f2)
+
+        COMPAT=true
+        if [[ "$CUDA_MINOR" -ge 5 ]]; then
+            [[ "${DRIVER_MAJOR:-0}" -lt 560 ]] && COMPAT=false
+        elif [[ "$CUDA_MINOR" -ge 3 ]]; then
+            [[ "${DRIVER_MAJOR:-0}" -lt 550 ]] && COMPAT=false
+        fi
+
+        if $COMPAT; then
+            ok "Driver $DRIVER_SMI is compatible with CUDA $TORCH_CUDA"
+        else
+            warn "Driver $DRIVER_SMI may be too old for CUDA $TORCH_CUDA"
+            note "Run: bash misc/fix_pytorch_cuda.sh"
+        fi
+
+        # Test CUDA actually works
+        CUDA_WORKS=$($TORCH_PYTHON -c "import torch; print(torch.cuda.is_available())" 2>/dev/null) || CUDA_WORKS="False"
+        if [[ "$CUDA_WORKS" == "True" ]]; then
+            GPU_NAME=$($TORCH_PYTHON -c "import torch; print(torch.cuda.get_device_name(0))" 2>/dev/null) || GPU_NAME="unknown"
+            ok "CUDA functional: $GPU_NAME"
+
+            # VRAM check
+            VRAM_MB=$($TORCH_PYTHON -c "
+import torch
+vram = torch.cuda.get_device_properties(0).total_mem
+print(vram // 1048576)
+" 2>/dev/null) || VRAM_MB=0
+            VRAM_GB=$((VRAM_MB / 1024))
+            note "VRAM: ${VRAM_GB}GB"
+
+            if [[ "$VRAM_GB" -lt 4 ]]; then
+                warn "VRAM < 4GB — medium/large models will OOM"
+                note "  Whisper: use small (fp32) or tiny (fp16)"
+            fi
+
+            # fp16 NaN check (known issue on GTX 1650)
+            GPU_NAME_LOWER=$(echo "$GPU_NAME" | tr '[:upper:]' '[:lower:]')
+            if echo "$GPU_NAME_LOWER" | grep -q "1650\|1660\|1050\|1060"; then
+                warn "fp16 may produce NaN on $GPU_NAME — use fp16=False for whisper"
+                note "  See misc/test_whisper.sh for details"
+            fi
+        else
+            warn "PyTorch CUDA not functional despite compatible driver"
+            note "Run: bash misc/fix_pytorch_cuda.sh"
+        fi
+    fi
+else
+    note "PyTorch not found (install openai-whisper via pipx to enable)"
+fi
+
 # ── 7. Other AI/ML Runtimes ──────────────────────────────────────────
 header "7. Other AI / ML Runtimes"
 
